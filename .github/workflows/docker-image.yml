@@ -1,0 +1,109 @@
+name: Build kkFileView Docker Images
+
+# 说明：
+#   1. 两个架构各跑一个原生 runner（ubuntu-24.04 / ubuntu-24.04-arm），不需要 QEMU 和 buildx 多平台。
+#   2. 上游 Dockerfile 的 FROM 是 keking/kkfileview-base:5.0.0，该基础镜像未发布到 Docker Hub，
+#      因此每次都在本 job 内先用 docker/kkfileview-base 构建出来。
+#   3. 产物是 docker save 出的单文件 tar.zst，已包含基础镜像的全部层，下载后直接 docker load 即可。
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'server/**'
+      - 'pom.xml'
+      - 'Dockerfile'
+      - 'docker/**'
+      - '.github/workflows/docker-image.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: docker-image-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build-${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: 环境自检
+        run: |
+          echo "runner 架构: $(uname -m)"
+          docker version --format 'docker server: {{.Server.Version}} ({{.Server.Arch}})'
+
+      - name: 从 pom.xml 读取版本
+        id: ver
+        run: |
+          V=$(mvn -B -q help:evaluate -Dexpression=project.version -DforceStdout 2>/dev/null | tr -d '\r' | tail -n1)
+          echo "项目版本: $V"
+          test -n "$V" || { echo "::error::无法从 pom.xml 读取版本"; exit 1; }
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - name: 校验 Dockerfile 版本路径
+        env:
+          V: ${{ steps.ver.outputs.version }}
+        run: |
+          if ! grep -q "kkFileView-$V" Dockerfile; then
+            echo "::error::Dockerfile 中的版本路径与 pom 版本 $V 不一致。请同步修改 Dockerfile 的 ENV KKFILEVIEW_BIN_FOLDER 与 ENTRYPOINT。"
+            exit 1
+          fi
+          echo "Dockerfile 与 pom 版本一致: $V"
+
+      - name: Maven 打包
+        run: mvn -B clean package -Dmaven.test.skip=true
+
+      - name: 构建基础镜像
+        run: docker build -t keking/kkfileview-base:5.0.0 docker/kkfileview-base
+
+      - name: 构建应用镜像
+        env:
+          V: ${{ steps.ver.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          docker build -t "kkfileview:${V}-${ARCH}" .
+          docker image inspect "kkfileview:${V}-${ARCH}" \
+            --format 'arch={{.Architecture}} size={{.Size}} bytes'
+
+      - name: 导出镜像
+        env:
+          V: ${{ steps.ver.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          if ! command -v zstd >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq zstd
+          fi
+          docker save "kkfileview:${V}-${ARCH}" \
+            | zstd -T0 -19 -o "kkfileview-${V}-${ARCH}.tar.zst"
+          ls -lh "kkfileview-${V}-${ARCH}.tar.zst"
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: kkfileview-${{ steps.ver.outputs.version }}-${{ matrix.arch }}
+          path: kkfileview-*.tar.zst
+          compression-level: 0
+          retention-days: 30
