@@ -34,7 +34,7 @@
 	var kkagent = '${kkagent}';
     var baseUrl = '${baseUrl}'.endsWith('/') ? '${baseUrl}' : '${baseUrl}' + '/';
     if (kkagent === 'true' || !url.startsWith(baseUrl)) {
-        url = baseUrl + 'getCorsFile?urlPath=' + encodeURIComponent(Base64.encode(url))+ "&key=${kkkey}";
+        url = baseUrl + 'getCorsFile?urlPath=' + encodeURIComponent('${aesEncode(finalUrl)}') + '&encryption=aes';
     }
     var myp = document.getElementById('tiff');
     let pages;

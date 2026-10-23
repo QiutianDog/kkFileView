@@ -770,7 +770,8 @@ public class FileController {
             return ReturnResponse.failure("文件名为空，删除失败！");
         }
         try {
-            fileName = WebUtils.decodeUrl(fileName, "base64");
+            // 安全策略：统一只接受 AES
+            fileName = WebUtils.decodeUrl(fileName, "aes");
         } catch (Exception ex) {
             String errorMsg = String.format(BASE64_DECODE_ERROR_MSG, fileName);
             return ReturnResponse.failure(errorMsg + "删除失败！");

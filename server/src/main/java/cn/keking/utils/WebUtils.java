@@ -41,7 +41,8 @@ public class WebUtils {
             "base641", "KK提醒您:BASE64解码异常,确认是否正确使用BASE64编码",
             "Keyerror", "KK提醒您:AES解码错误，请检测你的秘钥是否正确",
             "base64error", "KK提醒您:你选用的是ASE加密，实际用了BASE64加密接入",
-            "byteerror", "KK提醒您:解码异常，检测你接入方法是否正确"
+            "byteerror", "KK提醒您:解码异常，检测你接入方法是否正确",
+            "aesonly", "KK提醒您:仅支持AES加密的url参数,请勿直接传递BASE64"
     );
 
     private static final String EMPTY_URL_MSG = "KK提醒您:地址不能为空";
@@ -259,9 +260,8 @@ public class WebUtils {
                     if (StringUtils.isBlank(value)) {
                         continue;
                     }
-                    // picturesPreview decodes currentUrl as Base64 independently of encryption.
-                    String decoded = "currentUrl".equals(name)
-                            ? decodeBase64String(value, StandardCharsets.UTF_8) : decodeUrl(value, encryption);
+                    // 所有参数统一走 decodeUrl（AES-only），不再对 currentUrl 单独使用 Base64
+                    String decoded = decodeUrl(value, encryption);
                     if (decoded == null) {
                         return List.of("");
                     }
@@ -299,19 +299,15 @@ public class WebUtils {
      * aHR0cHM6Ly9maWxlLmtla2luZy5jbi9kZW1vL%2BS4reaWhy5wcHR4 -> https://file.keking.cn/demo/%E4%B8%AD%E6%96%87.pptx -> https://file.keking.cn/demo/中文.pptx
      */
     public static String decodeUrl(String source,String encryption) {
-        String url;
-        if(ObjectUtils.isEmpty(encryption) || Objects.equals(ConfigConstants.getaesKey(), "false")){
-            encryption = "base64";
+        // 安全策略：只接受 AES。未显式传 encryption 时默认按 aes 处理，
+        // 传递 base64 或其他任何取值都会被拒绝（返回 aesonly 哨兵）。
+        if (ObjectUtils.isEmpty(encryption)) {
+            encryption = "aes";
         }
-        if(Objects.equals(encryption.toLowerCase(), "aes")){
-            return AESUtil.AesDecrypt(source);
-        }else {
-            url = decodeBase64String(source, StandardCharsets.UTF_8);
-            if(!isValidUrl(url)){
-                url="base641";
-            }
-            return url;
+        if (!"aes".equalsIgnoreCase(encryption)) {
+            return "aesonly";
         }
+        return AESUtil.AesDecrypt(source);
     }
 
     /**

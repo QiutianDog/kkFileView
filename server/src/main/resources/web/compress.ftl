@@ -878,12 +878,11 @@
     }
 
     function buildPreviewUrl(treeNode) {
-        var path = '${baseUrl}' + treeNode.id + "?kkCompressfileKey=" + '${fileTree}' + "&kkCompressfilepath=" + encodeURIComponent(treeNode.id) + "&fullfilename=" + encodeURIComponent(treeNode.name);
-        var previewUrl = "${baseUrl}onlinePreview?url=" + encodeURIComponent(Base64.encode(path));
+        // url 参数必须由服务端 AES 加密后下发（treeNode.aesPath），前端不再自行 base64 拼接
+        var previewUrl = "${baseUrl}onlinePreview?url=" + encodeURIComponent(treeNode.aesPath || "") + "&encryption=aes";
         if (isNotEmpty(keyword)) {
             previewUrl += "&watermarkTxt=" + encodeURIComponent(keyword);
         }
-        previewUrl += "&key=${kkkey}";
         return previewUrl;
     }
 

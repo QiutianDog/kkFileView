@@ -5,6 +5,10 @@ public class ZtreeNodeVo {
     public String pid;
     public String name;
     public List<ZtreeNodeVo> children;
+    /**
+     * 该节点嵌套预览地址的 AES 密文，由服务端预先生成，前端不得自行拼接。
+     */
+    public String aesPath;
     public void setId(String id) {
         this.id = id;
     }
@@ -16,5 +20,8 @@ public class ZtreeNodeVo {
     }
     public void setChildren(List<ZtreeNodeVo> children) {
         this.children = children;
+    }
+    public void setAesPath(String aesPath) {
+        this.aesPath = aesPath;
     }
 }

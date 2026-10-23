@@ -4,11 +4,14 @@ import cn.keking.config.ConfigConstants;
 import cn.keking.model.FileAttribute;
 import cn.keking.model.ReturnResponse;
 import cn.keking.service.FilePreview;
+import cn.keking.utils.AESUtil;
 import cn.keking.utils.DownloadUtils;
 import cn.keking.service.FileHandlerService;
 import cn.keking.service.CompressFileReader;
+import cn.keking.service.ZtreeNodeVo;
 import cn.keking.utils.KkFileUtils;
 import cn.keking.utils.RarUtils;
+import cn.keking.web.filter.BaseUrlFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.poi.EncryptedDocumentException;
@@ -19,6 +22,9 @@ import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 /**
  * Created by kl on 2018/1/17.
@@ -81,11 +87,45 @@ public class CompressFilePreviewImpl implements FilePreview {
         model.addAttribute("fileName", fileName);
         model.addAttribute("fileTree", fileTree);
         try {
-            model.addAttribute("archiveTreeJson", new ObjectMapper().writeValueAsString(RarUtils.getTree(fileTree)));
+            List<ZtreeNodeVo> archiveTree = RarUtils.getTree(fileTree);
+            fillAesPath(archiveTree, fileTree);
+            model.addAttribute("archiveTreeJson", new ObjectMapper().writeValueAsString(archiveTree));
         } catch (IOException | SecurityException e) {
             logger.warn("Unable to read the previewed archive directory", e);
             return otherFilePreview.notSupportedFile(model, fileAttribute, "该压缩包目录无法读取!");
         }
         return COMPRESS_FILE_PREVIEW_PAGE;
+    }
+
+    /**
+     * 为压缩包内每个节点预先计算 AES 加密后的嵌套预览地址。
+     * 页面侧不允许再自行 base64 拼接，否则会保留一条绕过 AES 的通道。
+     */
+    private void fillAesPath(List<ZtreeNodeVo> nodes, String fileTree) {
+        if (nodes == null || nodes.isEmpty()) {
+            return;
+        }
+        String baseUrl = BaseUrlFilter.getBaseUrl();
+        if (!StringUtils.hasText(baseUrl)) {
+            baseUrl = "/";
+        }
+        if (!baseUrl.endsWith("/")) {
+            baseUrl = baseUrl + "/";
+        }
+        for (ZtreeNodeVo node : nodes) {
+            if (node == null) {
+                continue;
+            }
+            String path = baseUrl + node.id
+                    + "?kkCompressfileKey=" + fileTree
+                    + "&kkCompressfilepath=" + encode(node.id)
+                    + "&fullfilename=" + encode(node.name);
+            node.aesPath = AESUtil.aesEncrypt(path);
+            fillAesPath(node.children, fileTree);
+        }
+    }
+
+    private String encode(String value) {
+        return value == null ? "" : URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 }

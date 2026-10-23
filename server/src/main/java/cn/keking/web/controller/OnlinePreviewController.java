@@ -139,7 +139,11 @@ public class OnlinePreviewController {
         model.addAttribute("imgUrls", imgUrls);
         String currentUrl = req.getParameter("currentUrl");
         if (StringUtils.hasText(currentUrl)) {
-            String decodedCurrentUrl = new String(Base64.decodeBase64(currentUrl));
+            // 安全策略：currentUrl 同样只接受 AES，不再支持 base64
+            String decodedCurrentUrl = WebUtils.decodeUrl(currentUrl, req.getParameter("encryption"));
+            if (!WebUtils.isValidUrl(decodedCurrentUrl)) {
+                decodedCurrentUrl = imgUrls.get(0);
+            }
             decodedCurrentUrl = KkFileUtils.htmlEscape(decodedCurrentUrl);   // 防止XSS攻击
             model.addAttribute("currentUrl", decodedCurrentUrl);
         } else {

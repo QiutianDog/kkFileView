@@ -49,6 +49,18 @@ public class TrustHostFilter implements Filter {
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
+        // 安全策略：预览类接口只接受 AES 加密参数
+        String requestEncryption = request.getParameter("encryption");
+        if (!"aes".equalsIgnoreCase(requestEncryption)) {
+            if (response instanceof HttpServletResponse httpServletResponse) {
+                httpServletResponse.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            }
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().write("<html><head><meta charset=\"utf-8\"></head><body>访问不合法：仅支持 AES 加密的预览请求</body></html>");
+            response.getWriter().close();
+            return;
+        }
         List<String> urls = WebUtils.getSourceUrls(request);
         String rejectedUrl = urls.stream()
                 .filter(url -> !WebUtils.isValidUrl(url) || isNotTrustHost(WebUtils.getHost(url)))

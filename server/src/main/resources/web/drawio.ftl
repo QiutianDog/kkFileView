@@ -20,7 +20,7 @@
 	var kkagent = '${kkagent}';
     var baseUrl = '${baseUrl}'.endsWith('/') ? '${baseUrl}' : '${baseUrl}' + '/';
     if (kkagent === 'true' || !url.startsWith(baseUrl)) {
-        url = baseUrl + 'getCorsFile?urlPath=' + encodeURIComponent(Base64.encode(url))+ "&key=${kkkey}";
+        url = baseUrl + 'getCorsFile?urlPath=' + encodeURIComponent('${aesEncode(finalUrl)}') + '&encryption=aes';
     }
       document.getElementsByTagName('iframe')[0].src = "${baseUrl}drawio/index.html?lightbox=1&gapi=0&db=0&od=0&tr=0&gh=0&gl=0&edit=_blank&lang=zh#U"+ encodeURIComponent(url)+"";
     document.getElementsByTagName('iframe')[0].height = document.documentElement.clientHeight - 10;

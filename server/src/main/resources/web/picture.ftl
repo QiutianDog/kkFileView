@@ -33,7 +33,7 @@
     <#else>
     <#assign finalUrl="${baseUrl}${img}">
     </#if>
-    <li><div src="${finalUrl}" data-original-url="${finalUrl}" style="display: none"></li>
+    <li><div src="${finalUrl}" data-original-url="${finalUrl}" data-aes-path="${aesEncode(finalUrl)}" style="display: none"></li>
     </#list>
 </ul>
 
@@ -46,11 +46,12 @@
         
         imageElements.forEach(function(imgDiv) {
             var originalUrl = imgDiv.getAttribute('data-original-url');
+            var aesPath = imgDiv.getAttribute('data-aes-path');
             var finalUrl = originalUrl;
             
             // 检查是否需要反代
             if (kkagent === 'true') {
-                finalUrl = '${baseUrl}' + 'getCorsFile?urlPath=' + encodeURIComponent(Base64.encode(originalUrl));
+                finalUrl = '${baseUrl}' + 'getCorsFile?urlPath=' + encodeURIComponent(aesPath) + '&encryption=aes';
             }
             
             // 更新src属性

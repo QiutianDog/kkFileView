@@ -474,6 +474,7 @@
             <img class="single-photo" 
                  src="${finalUrl}" 
                  data-original="${finalUrl}"
+                 data-aes-path="${aesEncode(finalUrl)}"
                  alt="${file.name}"
                  loading="lazy">
             <div class="photo-overlay">
@@ -496,6 +497,7 @@
                 <img class="my-photo" 
                      src="${finalUrl}" 
                      data-original="${finalUrl}"
+                     data-aes-path="${aesEncode(finalUrl)}"
                      alt="图片 ${img?index + 1}"
                      loading="lazy">
                 <div class="photo-overlay">
@@ -655,10 +657,11 @@
         images.forEach(function(img) {
             if (!img) return;
             var originalUrl = img.getAttribute('data-original');
+            var aesPath = img.getAttribute('data-aes-path');
             // 检查是否需要反代
             if (kkagent === 'true'|| !originalUrl.startsWith(baseUrl)) {
-                // 构建反代URL
-                var proxyUrl = baseUrl + 'getCorsFile?urlPath=' + encodeURIComponent(Base64.encode(originalUrl)) + "&key=" + kkkey;
+                // 构建反代URL（urlPath 由服务端 AES 加密后下发）
+                var proxyUrl = baseUrl + 'getCorsFile?urlPath=' + encodeURIComponent(aesPath) + '&encryption=aes';
                 
                 // 如果当前src不是反代URL，则更新
                 if (img.src !== proxyUrl) {
